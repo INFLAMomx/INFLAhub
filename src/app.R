@@ -371,7 +371,7 @@ ui <- page_navbar(
 
   nav_item(
     tags$a(icon("github"), " GitHub",
-           href = "https://github.com", target = "_blank",
+           href = "https://github.com/INFLAMomx/INFLAhub", target = "_blank",
            class = "nav-link px-2")
   )
 )

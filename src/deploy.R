@@ -1,24 +1,26 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# deploy.R — Build static Shinylive app and prepare for GitHub Pages
+# deploy.R — Build the static Shinylive app locally (preview / manual build)
 #
-# Run this script from the app/ directory:
+# Publishing is automated: .github/workflows/deploy.yml rebuilds and deploys to
+# GitHub Pages on every push to main. You normally do NOT need to run this — use
+# it only to preview the Wasm build locally before pushing.
+#
+# Run this script from the src/ directory (the folder that contains app.R):
 #   Rscript deploy.R
 #
 # What it does:
 #   1. Installs shinylive if missing
 #   2. Exports the Shiny app to ../docs/ (WebAssembly build, no server needed)
-#   3. Adds .nojekyll so GitHub Pages skips Jekyll processing
+#   3. Adds .nojekyll so static hosts skip Jekyll processing
 #
-# GitHub Pages setup (one-time):
-#   - Push the repo to GitHub
-#   - Settings → Pages → Source: Deploy from branch
-#   - Branch: main  |  Folder: /docs
-#   - Your app will be live at https://<user>.github.io/<repo>/
+# GitHub Pages setup (one-time, for the workflow):
+#   - Settings → Pages → Build and deployment → Source: GitHub Actions
+#   - The app goes live at https://<user>.github.io/<repo>/
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Ensure we're in the app/ directory
+# Ensure we're in the app directory (the one holding app.R)
 if (!file.exists("app.R")) {
-  stop("Run this script from the app/ directory: Rscript deploy.R")
+  stop("Run this script from the src/ directory (where app.R lives): Rscript deploy.R")
 }
 
 # Set CRAN mirror if not already configured
@@ -42,15 +44,15 @@ shinylive::export(
   overwrite = TRUE
 )
 
-# Prevent GitHub Pages from running Jekyll (required for Shinylive)
+# Skip Jekyll processing on static hosts (required for Shinylive's asset layout)
 nojekyll <- file.path(dest, ".nojekyll")
 if (!file.exists(nojekyll)) file.create(nojekyll)
 
 message("")
-message("Done! Next steps:")
-message("  1. git add docs/ && git commit -m 'deploy: rebuild Shinylive app'")
-message("  2. git push")
-message("  3. Enable GitHub Pages in repo Settings → Pages → /docs on main")
+message("Done — static build written to ", normalizePath(dest), "/")
 message("")
-message("To preview locally before pushing:")
+message("Preview it locally with:")
 message("  shinylive::preview('", dest, "')")
+message("")
+message("To publish, just push to main — the GitHub Pages workflow rebuilds and")
+message("deploys automatically (.github/workflows/deploy.yml).")
