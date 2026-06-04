@@ -8,7 +8,7 @@ evaluation metrics, curated by Working Groups 1 and 2 of [COST Action CA24166 �
 
 ## What's inside
 
-The hub is a [Shiny](https://shiny.posit.co/) (R) app for browsing the catalogue:
+The hub is a [Shiny for Python](https://shiny.posit.co/py/) app for browsing the catalogue:
 
 - **Method Explorer** — filterable, searchable table of tools, with a detail panel per tool.
 - **Visual Overview** — quality landscape, tools-by-category chart, and omics-layer coverage.

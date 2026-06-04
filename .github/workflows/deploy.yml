@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 
-# Builds the Shiny app into a static Shinylive (WebAssembly) site and publishes
-# it to GitHub Pages. No Shiny server is needed — the app runs entirely in the
-# browser via webR.
+# Builds the Shiny for Python app into a static Shinylive (WebAssembly) site and
+# publishes it to GitHub Pages. No server is needed — the app runs entirely in
+# the browser via Pyodide.
 #
 # One-time setup: Settings → Pages → Build and deployment → Source: GitHub Actions
 
@@ -32,27 +32,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          use-public-rspm: true
+          python-version: "3.12"
 
-      # shinylive::export() does NOT need the app's own packages installed —
-      # it detects them from the source and fetches the matching Wasm builds.
-      # So the host only needs shinylive itself.
+      # shinylive export() does NOT need the app's own packages installed — it
+      # reads the source, bundles the matching Wasm/pure-Python wheels, and lists
+      # any extras (see src/requirements.txt) for runtime micropip install. So the
+      # host only needs shinylive itself.
       - name: Install shinylive
-        shell: Rscript {0}
-        run: |
-          install.packages("pak")
-          pak::pak("shinylive")
+        run: pip install shinylive
+
+      # Cache the ~400 MB Shinylive web assets (Pyodide runtime) between runs.
+      - name: Cache Shinylive assets
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/shinylive
+          key: shinylive-${{ runner.os }}
 
       - name: Build static Shinylive site
-        shell: Rscript {0}
-        run: |
-          shinylive::export("src", "_site")
+        run: shinylive export src _site
 
-      # Pages served from an Actions artifact aren't run through Jekyll, but
-      # add .nojekyll anyway so Shinylive's underscore-prefixed assets are safe.
+      # Pages served from an Actions artifact aren't run through Jekyll, but add
+      # .nojekyll anyway so Shinylive's underscore-prefixed assets are safe.
       - name: Disable Jekyll
         run: touch _site/.nojekyll
 

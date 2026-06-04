@@ -8,7 +8,7 @@ There are two kinds of contributions:
 
 - **Catalogue data** — adding or correcting tools, benchmarks, or metrics in the
   spreadsheet.
-- **App code** — changes to the Shiny app (`src/app.R`), styling, or CI.
+- **App code** — changes to the Shiny app (`src/app.py`), styling, or CI.
 
 ## Before you start
 
@@ -27,7 +27,7 @@ There are two kinds of contributions:
   - `fix: handle empty Omics_layers in heatmap`
   - `data: add 3 spatial integration tools`
   - `docs: clarify local build steps`
-  - `ci: cache R packages in deploy workflow`
+  - `ci: cache Shinylive assets in deploy workflow`
 - Keep commits logically grouped; rebase/squash noisy WIP commits before opening
   the PR.
 
@@ -39,8 +39,9 @@ The catalogue lives in `Method_hub_WG2.xlsx`, which is tracked with
 1. `dvc pull` to fetch the current spreadsheet.
 2. Edit the relevant sheet (`Bulk methods`, `Single-cell methods`,
    `Spatial methods`, `Benchmarking`, or `Evaluation metrics`).
-   - **Don't change the column order or header rows** — `app.R` reads columns by
-     position (see `METHOD_COLS` and the `skip =` offsets in `src/app.R`).
+   - **Don't change the column order or header rows** — `app.py` reads method
+     columns by position (see `METHOD_COLS` and the `skiprows=` offsets in
+     `src/app.py`).
    - Use `Y` / `N` for the inclusion-criteria columns (actively maintained,
      published, code available, parameters documented). Inclusion status is
      **recomputed** from these in the app, so you don't need to fill it in.
@@ -50,22 +51,25 @@ The catalogue lives in `Method_hub_WG2.xlsx`, which is tracked with
 
 ## Changing the app
 
-- Match the existing code style in `src/app.R` (tidyverse pipes, the section
-  banners, helper functions like `val()`, `star_rating()`, `yn_badge()`).
+- Match the existing code style in `src/app.py` (pandas, the section banners, the
+  module-level builder functions and helpers like `val()`, `star_rating()`,
+  `yn_badge()`).
 - Guard against missing/empty data — sheets and columns may be incomplete. Follow
-  the existing `tryCatch` / `coalesce` / empty-state patterns.
-- **Test locally before pushing:** `shiny::runApp("src")` and click through all
-  four tabs. There is no automated test suite, so manual verification is the bar.
+  the existing `try`/`except`, `fillna`, and empty-state patterns.
+- **Test locally before pushing:** `shiny run --reload src/app.py` and click
+  through all four tabs. There is no automated test suite, so manual verification
+  is the bar.
 - If you change anything that affects the Wasm build, sanity-check it with
-  `Rscript deploy.R` from `src/` and preview the output.
+  `python src/deploy.py` and preview `_site/` before pushing.
 
 ## Opening the pull request
 
 - Target `main`.
 - Fill in the PR template: **what** changed, **why**, and **how you verified it**.
 - Confirm the app still loads and all four tabs render without errors.
-- Note any new R package dependencies — they must be available as Wasm builds for
-  the Shinylive deploy to succeed.
+- Note any new Python dependencies — they must be pure-Python wheels or have a
+  Pyodide build, and non-bundled ones belong in `src/requirements.txt`, for the
+  Shinylive deploy to succeed.
 - A maintainer will review. Deployment to GitHub Pages happens automatically once
   the PR is merged to `main` (when `src/**` changes).
 

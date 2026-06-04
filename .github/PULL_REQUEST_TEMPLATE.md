@@ -10,7 +10,7 @@ See CONTRIBUTING.md for the full guidelines.
 ## Type of change
 
 - [ ] Catalogue data (tools / benchmarks / metrics)
-- [ ] App code (`src/app.R`, styling)
+- [ ] App code (`src/app.py`, styling)
 - [ ] CI / build / docs
 - [ ] Other:
 
@@ -18,10 +18,10 @@ See CONTRIBUTING.md for the full guidelines.
 
 <!-- How did you check this works? -->
 
-- [ ] Ran `shiny::runApp("src")` and clicked through all four tabs without errors
+- [ ] Ran `shiny run --reload src/app.py` and clicked through all four tabs without errors
 - [ ] (Data) Ran `dvc add` + `dvc push`; committed the updated `.dvc` pointer
-- [ ] (Build-affecting) Verified the Shinylive build with `Rscript deploy.R`
-- [ ] Any new R package dependencies are available as Wasm builds
+- [ ] (Build-affecting) Verified the Shinylive build with `python src/deploy.py`
+- [ ] Any new Python dependencies have a Pyodide/pure-Python wheel (non-bundled ones added to `src/requirements.txt`)
 
 ## Notes for reviewers
 
