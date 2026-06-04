@@ -115,6 +115,28 @@ table.dataTable th {
 .plotly .modebar { opacity: 0.4; }
 .plotly .modebar:hover { opacity: 1; }
 
+/* Navbar background — brand teal (set in R via the bslib navbar-bg variable) */
+.navbar {
+  background-color: #264653 !important;
+}
+.navbar .navbar-brand,
+.navbar .nav-link {
+  color: #ffffff !important;
+}
+
+/* Data grid (Shiny for Python) — match the DataTables look from the R app */
+.shiny-data-grid th {
+  background-color: #f1f5f9 !important;
+  color: #374151;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.shiny-data-grid tbody tr:hover td {
+  background-color: #e8f4f8 !important;
+  cursor: pointer;
+}
+
 /* Responsive tweaks */
 @media (max-width: 768px) {
   .modal-dialog { margin: 0.5rem; }

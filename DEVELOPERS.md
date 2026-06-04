@@ -4,12 +4,18 @@ Technical reference for running, building, and deploying INFLAhub. For the
 contribution workflow (branches, commits, PRs), see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+The app is built with [Shiny for Python](https://shiny.posit.co/py/), with
+[plotly](https://plotly.com/python/) charts (rendered via
+[shinywidgets](https://github.com/posit-dev/py-shinywidgets)) and
+[pandas](https://pandas.pydata.org/) for the data wrangling.
+
 ## Repository layout
 
 ```
 src/
-  app.R              # the Shiny application (UI + server)
-  deploy.R           # local Shinylive (WebAssembly) build script
+  app.py             # the Shiny application (UI + server)
+  deploy.py          # local Shinylive (WebAssembly) build script
+  requirements.txt   # extra Wasm packages (only those not bundled by Shinylive)
   www/custom.css     # styling
   data/              # working copy of the catalogue spreadsheet
 data/
@@ -26,43 +32,51 @@ committed to git — they are tracked with [DVC](https://dvc.org/); only the sma
 running the app.
 
 The app reads several sheets (`Bulk methods`, `Single-cell methods`,
-`Spatial methods`, `Benchmarking`, `Evaluation metrics`). Columns are read **by
-position** — see `METHOD_COLS` and the `skip =` offsets in `src/app.R` — so don't
-reorder columns or header rows when editing.
+`Spatial methods`, `Benchmarking`, `Evaluation metrics`). Method columns are read
+**by position** — see `METHOD_COLS` and the `skiprows=` offsets in `src/app.py` —
+so don't reorder columns or header rows when editing.
 
 ## Running locally
 
-You need R with the app's packages:
+You need Python 3.9+ with the app's packages:
 
-```r
-install.packages(c(
-  "shiny", "bslib", "DT", "plotly", "readxl",
-  "dplyr", "tidyr", "stringr", "shinyWidgets"
-))
+```bash
+pip install shiny shinywidgets shinyswatch plotly pandas openpyxl faicons
 ```
 
 Then, from the repository root:
 
-```r
-shiny::runApp("src")
+```bash
+shiny run --reload src/app.py
 ```
 
-The app reads `data/Method_hub_WG2.xlsx` relative to the app directory — run
-`dvc pull` first if you don't have the spreadsheet locally.
+…and open the URL it prints (default <http://127.0.0.1:8000>). The app reads
+`data/Method_hub_WG2.xlsx` relative to the app file — run `dvc pull` first if you
+don't have the spreadsheet locally.
 
 ## Building the static site
 
-The published site is a [Shinylive](https://posit-dev.github.io/r-shinylive/)
-build that runs entirely in the browser (WebAssembly via webR — **no server
+The published site is a [Shinylive](https://shiny.posit.co/py/docs/shinylive.html)
+build that runs entirely in the browser (WebAssembly via Pyodide — **no server
 required**). You don't normally need to build it by hand: the
 [`deploy.yml`](.github/workflows/deploy.yml) workflow rebuilds and publishes to
 GitHub Pages on every push to `main` that touches `src/**`.
 
-To preview the Wasm build locally before pushing, run from `src/`:
+To preview the Wasm build locally before pushing:
 
 ```bash
-Rscript deploy.R
+pip install shinylive
+python src/deploy.py                       # exports to ./_site/
+python -m http.server -d _site 8000        # http://localhost:8000
 ```
 
-Any new R package dependency must be available as a Wasm build for the Shinylive
-deploy to succeed.
+(Equivalently: `shinylive export src _site`.)
+
+### Dependencies in the browser build
+
+Shinylive detects the app's imports and bundles matching wheels automatically, so
+most dependencies need no extra configuration. Only packages that are **not**
+provided by Shinylive/Pyodide go in `src/requirements.txt` (currently just
+`openpyxl`, pandas' `.xlsx` engine), where they are installed at app-load time via
+micropip. A new dependency must be a pure-Python wheel or have a Pyodide build for
+the deploy to work.

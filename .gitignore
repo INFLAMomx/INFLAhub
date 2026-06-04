@@ -42,6 +42,15 @@ vignettes/*.pdf
 # pkgdown site
 docs/
 
+# Shinylive static build output (produced by src/deploy.py and CI)
+_site/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
 # translation temp files
 po/*~
 
