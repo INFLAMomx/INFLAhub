@@ -8,6 +8,7 @@
 
 import re
 import textwrap
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -277,6 +278,201 @@ def data_type_card():
 
 # ─── UI ───────────────────────────────────────────────────────────────────────
 
+# ─── Methods table: column registry ───────────────────────────────────────────
+# One source of truth for the methods table AND its export. Each column has:
+#   display(row) -> str       text shown in the grid cell
+#   export(row)  -> scalar    clean value for downloads (numbers stay numeric)
+#   style(row)   -> dict|None  optional per-cell CSS (badges)
+
+
+def _num_or_blank(v):
+    if pd.isna(v):
+        return ""
+    if isinstance(v, float) and float(v).is_integer():
+        return int(v)
+    return v
+
+
+def _text(field):
+    return lambda r: "" if pd.isna(r[field]) else str(r[field])
+
+
+def _status_text(r):
+    return r["Include"] if r["Include"] in ("PASS", "REVIEW") else DASH
+
+
+def _style_type(r):
+    t = r["Data_type"]
+    return {
+        "background-color": PAL_TYPE.get(t, "#888888"),
+        "color": PAL_TYPE_TEXT.get(t, "#ffffff"),
+        "font-weight": "500",
+        "text-align": "center",
+    }
+
+
+def _style_status(r):
+    s = r["Include"]
+    if s == "PASS":
+        bg, fg = "#2A9D8F", "#ffffff"
+    elif s == "REVIEW":
+        bg, fg = "#E9C46A", "#1a1a1a"
+    else:
+        return None
+    return {"background-color": bg, "color": fg, "font-weight": "500",
+            "text-align": "center"}
+
+
+# Ordered registry. The first 9 are the default view; the rest are opt-in.
+COLUMN_DEFS = [
+    {"label": "Type", "display": lambda r: str(r["Data_type"]),
+     "export": lambda r: str(r["Data_type"]), "style": _style_type},
+    {"label": "Tool", "display": _text("Tool"), "export": _text("Tool")},
+    {"label": "Category", "display": _text("Integration_category"),
+     "export": _text("Integration_category")},
+    {"label": "Supervised?", "display": _text("Integration_type"),
+     "export": _text("Integration_type")},
+    {"label": "Omics layers", "display": _text("Omics_layers"),
+     "export": _text("Omics_layers")},
+    {"label": "Language", "display": _text("Language"), "export": _text("Language")},
+    {"label": "Doc ★", "display": lambda r: star_rating(r["Doc_quality"]),
+     "export": lambda r: _num_or_blank(r["Doc_quality"])},
+    {"label": "UX ★", "display": lambda r: star_rating(r["Usability"]),
+     "export": lambda r: _num_or_blank(r["Usability"])},
+    {"label": "Status", "display": _status_text,
+     "export": lambda r: (r["Include"] if r["Include"] in ("PASS", "REVIEW") else ""),
+     "style": _style_status},
+    {"label": "Technologies", "display": _text("Technologies"),
+     "export": _text("Technologies")},
+    {"label": "Underlying method", "display": _text("Underlying_method"),
+     "export": _text("Underlying_method")},
+    {"label": "Install via", "display": _text("Installation_source"),
+     "export": _text("Installation_source")},
+    {"label": "Maintenance", "display": _text("Maintenance_status"),
+     "export": _text("Maintenance_status")},
+    {"label": "Citations", "display": lambda r: str(_num_or_blank(r["Citation_count"])),
+     "export": lambda r: _num_or_blank(r["Citation_count"])},
+    {"label": "Benchmarked in", "display": _text("Benchmarked_in"),
+     "export": _text("Benchmarked_in")},
+    {"label": "Preprocessing", "display": _text("Preprocessing_steps"),
+     "export": _text("Preprocessing_steps")},
+    {"label": "Input formats", "display": _text("Input_formats"),
+     "export": _text("Input_formats")},
+    {"label": "Output formats", "display": _text("Output_formats"),
+     "export": _text("Output_formats")},
+    {"label": "Best for", "display": _text("Best_for"), "export": _text("Best_for")},
+    {"label": "Paper / DOI", "display": _text("Paper_DOI"),
+     "export": _text("Paper_DOI")},
+    {"label": "Link", "display": _text("Link"), "export": _text("Link")},
+    {"label": "Actively maintained", "display": _text("Actively_maintained"),
+     "export": _text("Actively_maintained")},
+    {"label": "Published", "display": _text("Published"),
+     "export": _text("Published")},
+    {"label": "Code available", "display": _text("Code_available"),
+     "export": _text("Code_available")},
+    {"label": "Params documented", "display": _text("Parameters_documented"),
+     "export": _text("Parameters_documented")},
+]
+
+COLUMNS = {c["label"]: c for c in COLUMN_DEFS}
+ALL_COLS = [c["label"] for c in COLUMN_DEFS]
+DEFAULT_COLS = [
+    "Type", "Tool", "Category", "Supervised?", "Omics layers",
+    "Language", "Doc ★", "UX ★", "Status",
+]
+
+
+def _resolve_columns(columns):
+    """Selected labels reordered to canonical order; fall back to defaults."""
+    if not columns:
+        return DEFAULT_COLS
+    chosen = set(columns)
+    ordered = [c for c in ALL_COLS if c in chosen]
+    return ordered or DEFAULT_COLS
+
+
+def build_methods_grid(df, columns=None):
+    labels = _resolve_columns(columns)
+
+    if df.shape[0] == 0:
+        disp = pd.DataFrame({lab: pd.Series(dtype="object") for lab in labels})
+        return render.DataGrid(disp, selection_mode="row", filters=True,
+                               height="640px", width="100%")
+
+    disp = pd.DataFrame(
+        {lab: df.apply(COLUMNS[lab]["display"], axis=1) for lab in labels}
+    )
+
+    styles = []
+    for ci, lab in enumerate(labels):
+        style_fn = COLUMNS[lab].get("style")
+        if style_fn is None:
+            continue
+        for ri in range(df.shape[0]):
+            st = style_fn(df.iloc[ri])
+            if st:
+                styles.append({"rows": [ri], "cols": [ci], "style": st})
+
+    return render.DataGrid(
+        disp,
+        selection_mode="row",
+        filters=True,
+        styles=styles,
+        height="640px",
+        width="100%",
+    )
+
+
+def methods_export_df(df, columns=None):
+    """Clean-value DataFrame for download: selected columns over the given rows."""
+    labels = _resolve_columns(columns)
+    if df.shape[0] == 0:
+        return pd.DataFrame({lab: pd.Series(dtype="object") for lab in labels})
+    return pd.DataFrame(
+        {lab: df.apply(COLUMNS[lab]["export"], axis=1) for lab in labels}
+    )
+
+
+# ─── Export helpers (CSV / TSV / JSON — no extra dependencies) ─────────────────
+
+EXPORT_FORMATS = ["CSV", "TSV", "JSON"]
+_EXPORT_EXT = {"CSV": "csv", "TSV": "tsv", "JSON": "json"}
+
+# Columns shown (and exported) for the Benchmarking and Evaluation-metrics tables.
+BENCH_COLS = [
+    "Benchmark / framework", "Type", "Data modality",
+    "Tissue / disease compared", "Language", "Maintenance status",
+    "Link", "Paper link / DOI",
+]
+METRIC_COLS = [
+    "ID", "Metric", "Category / applies to", "What it measures",
+    "Objective / Subjective", "Tools / packages (Python | R)",
+    "Reference (definition paper / DOI)",
+]
+
+
+def table_to_text(df, fmt):
+    if fmt == "TSV":
+        return df.to_csv(index=False, sep="\t")
+    if fmt == "JSON":
+        return df.to_json(orient="records", indent=2, force_ascii=False)
+    return df.to_csv(index=False)  # CSV (default)
+
+
+def export_filename(stem, fmt):
+    return f"inflahub_{stem}_{date.today().isoformat()}.{_EXPORT_EXT.get(fmt, 'csv')}"
+
+
+def export_toolbar(select_id, button_id, extra_class=""):
+    """Compact format-select + download button used above each table."""
+    return ui.div(
+        ui.input_select(select_id, None, choices=EXPORT_FORMATS, width="86px"),
+        ui.download_button(button_id, "Export",
+                           class_="btn btn-sm btn-outline-primary"),
+        class_=f"d-flex align-items-center gap-2 {extra_class}".strip(),
+    )
+
+
 app_ui = ui.page_navbar(
     # ── Tab 1 – Method Explorer ──────────────────────────────────────────────
     ui.nav_panel(
@@ -297,6 +493,11 @@ app_ui = ui.page_navbar(
                 ),
                 ui.input_switch("f_pass", "PASS inclusion only", value=False),
                 ui.tags.hr(class_="my-3"),
+                ui.input_selectize(
+                    "f_cols", "Columns", choices=ALL_COLS, selected=DEFAULT_COLS,
+                    multiple=True, options={"plugins": ["remove_button"]},
+                ),
+                ui.tags.hr(class_="my-3"),
                 ui.p(
                     faicons.icon_svg("circle-info"),
                     " Click any row to view full details.",
@@ -312,6 +513,7 @@ app_ui = ui.page_navbar(
                         ui.output_text("n_tools_label", inline=True),
                         class_="badge bg-secondary",
                     ),
+                    export_toolbar("methods_fmt", "dl_methods", extra_class="ms-auto"),
                     class_="d-flex align-items-center gap-2",
                 ),
                 ui.output_data_frame("tbl_methods"),
@@ -351,8 +553,18 @@ app_ui = ui.page_navbar(
     ui.nav_panel(
         "Benchmarking & Metrics",
         ui.navset_card_underline(
-            ui.nav_panel("Benchmark studies", ui.output_data_frame("tbl_bench")),
-            ui.nav_panel("Evaluation metrics", ui.output_data_frame("tbl_metrics")),
+            ui.nav_panel(
+                "Benchmark studies",
+                export_toolbar("bench_fmt", "dl_bench",
+                               extra_class="justify-content-end mb-2"),
+                ui.output_data_frame("tbl_bench"),
+            ),
+            ui.nav_panel(
+                "Evaluation metrics",
+                export_toolbar("metrics_fmt", "dl_metrics",
+                               extra_class="justify-content-end mb-2"),
+                ui.output_data_frame("tbl_metrics"),
+            ),
         ),
         icon=faicons.icon_svg("flask"),
     ),
@@ -404,69 +616,6 @@ app_ui = ui.page_navbar(
 # ─── Figure / table / modal builders ──────────────────────────────────────────
 # Pure functions (no reactivity) so they can be unit-tested directly; the server
 # render functions are thin wrappers around these.
-
-
-def build_methods_grid(df):
-    disp = pd.DataFrame(
-        {
-            "Type": df["Data_type"].astype(str),
-            "Tool": df["Tool"].astype(str),
-            "Category": df["Integration_category"].fillna(""),
-            "Supervised?": df["Integration_type"].fillna(""),
-            "Omics layers": df["Omics_layers"].fillna(""),
-            "Language": df["Language"].fillna(""),
-            "Doc ★": df["Doc_quality"].map(star_rating),
-            "UX ★": df["Usability"].map(star_rating),
-            "Status": df["Include"].map(
-                lambda v: v if v in ("PASS", "REVIEW") else DASH
-            ),
-        }
-    )
-
-    cols = list(disp.columns)
-    type_col, status_col = cols.index("Type"), cols.index("Status")
-    styles = []
-    for i, t in enumerate(df["Data_type"]):
-        styles.append(
-            {
-                "rows": [i],
-                "cols": [type_col],
-                "style": {
-                    "background-color": PAL_TYPE.get(t, "#888888"),
-                    "color": PAL_TYPE_TEXT.get(t, "#ffffff"),
-                    "font-weight": "500",
-                    "text-align": "center",
-                },
-            }
-        )
-    for i, s in enumerate(disp["Status"]):
-        if s == "PASS":
-            bg, fg = "#2A9D8F", "#ffffff"
-        elif s == "REVIEW":
-            bg, fg = "#E9C46A", "#1a1a1a"
-        else:
-            continue
-        styles.append(
-            {
-                "rows": [i],
-                "cols": [status_col],
-                "style": {
-                    "background-color": bg,
-                    "color": fg,
-                    "font-weight": "500",
-                    "text-align": "center",
-                },
-            }
-        )
-
-    return render.DataGrid(
-        disp,
-        selection_mode="row",
-        filters=True,
-        styles=styles,
-        height="640px",
-        width="100%",
-    )
 
 
 def build_modal(r):
@@ -730,9 +879,20 @@ def server(input, output, session):
         return f"{n} tool" + ("s" if n != 1 else "")
 
     # ── Methods table ────────────────────────────────────────────────────────
+    @reactive.calc
+    def selected_columns():
+        return _resolve_columns(list(input.f_cols() or []))
+
     @render.data_frame
     def tbl_methods():
-        return build_methods_grid(filt())
+        return build_methods_grid(filt(), selected_columns())
+
+    @render.download(
+        filename=lambda: export_filename("methods", input.methods_fmt())
+    )
+    def dl_methods():
+        df = methods_export_df(filt(), selected_columns())
+        yield table_to_text(df, input.methods_fmt())
 
     # ── Row click → detail modal ─────────────────────────────────────────────
     @reactive.effect
@@ -764,40 +924,42 @@ def server(input, output, session):
         return heatmap_fig()
 
     # ── Benchmarking table ───────────────────────────────────────────────────
+    def _bench_view():
+        return bench[[c for c in BENCH_COLS if c in bench.columns]]
+
     @render.data_frame
     def tbl_bench():
         if bench.shape[0] == 0:
             return render.DataGrid(
                 pd.DataFrame({"Message": ["No benchmarking data loaded."]})
             )
-        show_cols = [
-            c
-            for c in [
-                "Benchmark / framework", "Type", "Data modality",
-                "Tissue / disease compared", "Language", "Maintenance status",
-                "Link", "Paper link / DOI",
-            ]
-            if c in bench.columns
-        ]
-        return render.DataGrid(bench[show_cols], width="100%", height="560px")
+        return render.DataGrid(_bench_view(), width="100%", height="560px")
+
+    @render.download(
+        filename=lambda: export_filename("benchmarking", input.bench_fmt())
+    )
+    def dl_bench():
+        df = _bench_view() if bench.shape[0] else bench
+        yield table_to_text(df, input.bench_fmt())
 
     # ── Evaluation metrics table ─────────────────────────────────────────────
+    def _metrics_view():
+        return metrics[[c for c in METRIC_COLS if c in metrics.columns]]
+
     @render.data_frame
     def tbl_metrics():
         if metrics.shape[0] == 0:
             return render.DataGrid(
                 pd.DataFrame({"Message": ["No metrics data loaded."]})
             )
-        show_cols = [
-            c
-            for c in [
-                "ID", "Metric", "Category / applies to", "What it measures",
-                "Objective / Subjective", "Tools / packages (Python | R)",
-                "Reference (definition paper / DOI)",
-            ]
-            if c in metrics.columns
-        ]
-        return render.DataGrid(metrics[show_cols], width="100%", height="560px")
+        return render.DataGrid(_metrics_view(), width="100%", height="560px")
+
+    @render.download(
+        filename=lambda: export_filename("evaluation_metrics", input.metrics_fmt())
+    )
+    def dl_metrics():
+        df = _metrics_view() if metrics.shape[0] else metrics
+        yield table_to_text(df, input.metrics_fmt())
 
     # ── About stats ──────────────────────────────────────────────────────────
     @render.ui
