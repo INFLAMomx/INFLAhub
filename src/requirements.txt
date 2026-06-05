@@ -1,0 +1,10 @@
+# Extra Python packages for the Shinylive (WebAssembly) build.
+#
+# Only list packages that Shinylive/Pyodide does NOT already provide. The app's
+# other dependencies — shiny, shinywidgets, shinyswatch, plotly, pandas, numpy,
+# faicons — are detected from the source imports and bundled automatically, so
+# they must NOT be listed here (that would trigger redundant runtime installs).
+#
+# openpyxl is pandas' .xlsx read engine. It is pure-Python and installed at app
+# load time via micropip (it is not part of the base Pyodide distribution).
+openpyxl
