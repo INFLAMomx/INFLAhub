@@ -1,5 +1,44 @@
 /* ─── INFLAMomx WG2 Method Hub ─────────────────────────────────────────────── */
 
+/* ─── Brand palette (flatly-inspired) ───────────────────────────────────────
+   Applied through Bootstrap's CSS variables instead of a compiled bslib theme,
+   so the app needs no Sass compiler and runs in the browser (Pyodide/Shinylive).
+   These hues match the R app's bs_theme() palette. */
+:root {
+  --bs-primary: #264653;
+  --bs-primary-rgb: 38, 70, 83;
+  --bs-secondary: #4EBFD4;
+  --bs-secondary-rgb: 78, 191, 212;
+  --bs-success: #2A9D8F;
+  --bs-success-rgb: 42, 157, 143;
+  --bs-warning: #E9C46A;
+  --bs-warning-rgb: 233, 196, 106;
+  --bs-danger: #E76F51;
+  --bs-danger-rgb: 231, 111, 81;
+  --bs-info: #3a7ca5;
+  --bs-info-rgb: 58, 124, 165;
+  --bs-link-color: #264653;
+  --bs-link-color-rgb: 38, 70, 83;
+  --bs-link-hover-color: #1b333d;
+}
+
+/* Bootstrap 5.3 reads these per-component variables for outline buttons
+   (the modal's "Homepage / repo" and "Paper / DOI" links). */
+.btn-outline-primary {
+  --bs-btn-color: #264653;
+  --bs-btn-border-color: #264653;
+  --bs-btn-hover-bg: #264653;
+  --bs-btn-hover-border-color: #264653;
+  --bs-btn-active-bg: #264653;
+  --bs-btn-active-border-color: #264653;
+}
+.btn-outline-secondary {
+  --bs-btn-color: #486581;
+  --bs-btn-border-color: #cbd5e1;
+  --bs-btn-hover-bg: #486581;
+  --bs-btn-hover-border-color: #486581;
+}
+
 /* Navbar */
 .navbar-brand { font-weight: 600; letter-spacing: 0.2px; }
 .navbar .nav-link { opacity: 0.85; }
