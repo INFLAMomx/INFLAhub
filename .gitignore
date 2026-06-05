@@ -51,6 +51,9 @@ __pycache__/
 .venv/
 venv/
 
+# LibreOffice / OpenOffice lock files
+.~lock.*#
+
 # translation temp files
 po/*~
 

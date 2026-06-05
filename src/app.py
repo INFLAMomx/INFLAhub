@@ -76,12 +76,15 @@ def link_btn(href, label, icon_name, btn_class="btn-outline-primary"):
 
 
 # ─── Data loading ──────────────────────────────────────────────────────────────
+# The catalogue lives in per-table CSV files under src/data/ (git-tracked, so
+# edits show up as diffs on GitHub). Regenerate them from the master Excel
+# workbook with `python build_csvs.py`.
 
-XLSX = APP_DIR / "data" / "Method_hub_WG2.xlsx"
+DATA_DIR = APP_DIR / "data"
 
-# Method sheets are read by column position (skiprows=3). Keep this list aligned
-# with the spreadsheet column order — "Technologies" (idx 7) and
-# "Preprocessing_steps" (idx 20) were added in the June 2026 update.
+# Expected method-sheet columns. The CSVs carry these as their header, so they
+# are read by name; this list is kept for the empty/missing-file fallback and to
+# document the schema. KEEP IN SYNC with build_csvs.py.
 METHOD_COLS = [
     "Assigned_to", "Tool", "Integration_category", "Link",
     "Use_case", "Integration_type", "Omics_layers", "Technologies",
@@ -95,15 +98,16 @@ METHOD_COLS = [
 ]
 
 
-def read_methods(sheet, type_label):
+def read_methods(csv_name, type_label):
     try:
-        df = pd.read_excel(
-            XLSX, sheet_name=sheet, skiprows=3, header=None,
-            names=METHOD_COLS, dtype=str,
-        )
+        df = pd.read_csv(DATA_DIR / csv_name, dtype=str)
     except Exception as e:  # noqa: BLE001
-        print(f"Could not load sheet '{sheet}': {e}")
+        print(f"Could not load '{csv_name}': {e}")
         return pd.DataFrame(columns=METHOD_COLS + ["Data_type", "Include"])
+
+    for col in METHOD_COLS:  # tolerate a CSV missing an optional column
+        if col not in df.columns:
+            df[col] = pd.NA
 
     df = df[df["Tool"].notna() & (df["Tool"].astype(str).str.strip() != "")].copy()
     df["Data_type"] = type_label
@@ -121,26 +125,24 @@ def read_methods(sheet, type_label):
 
 methods_all = pd.concat(
     [
-        read_methods("Bulk methods", "Bulk"),
-        read_methods("Single-cell methods", "Single-cell"),
-        read_methods("Spatial methods", "Spatial"),
+        read_methods("methods_bulk.csv", "Bulk"),
+        read_methods("methods_single_cell.csv", "Single-cell"),
+        read_methods("methods_spatial.csv", "Spatial"),
     ],
     ignore_index=True,
 )
 
 try:
-    bench = pd.read_excel(XLSX, sheet_name="Benchmarking", skiprows=1, dtype=str)
-    bench = bench[bench.iloc[:, 1].notna()].copy()
+    bench = pd.read_csv(DATA_DIR / "benchmarking.csv", dtype=str)
 except Exception as e:  # noqa: BLE001
-    print(f"Could not load Benchmarking sheet: {e}")
+    print(f"Could not load benchmarking.csv: {e}")
     bench = pd.DataFrame()
 
 try:
-    metrics = pd.read_excel(XLSX, sheet_name="Evaluation metrics", skiprows=1, dtype=str)
+    metrics = pd.read_csv(DATA_DIR / "evaluation_metrics.csv", dtype=str)
     metrics = metrics[metrics["Metric"].notna()].copy()
-    metrics.rename(columns={metrics.columns[0]: "ID"}, inplace=True)
 except Exception as e:  # noqa: BLE001
-    print(f"Could not load Evaluation metrics sheet: {e}")
+    print(f"Could not load evaluation_metrics.csv: {e}")
     metrics = pd.DataFrame({"ID": [], "Metric": []})
 
 # ─── Palettes & constants ─────────────────────────────────────────────────────

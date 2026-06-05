@@ -7,7 +7,7 @@ what we expect in a pull request. By contributing you agree to follow our
 There are two kinds of contributions:
 
 - **Catalogue data** — adding or correcting tools, benchmarks, or metrics in the
-  spreadsheet.
+  CSV files (`src/data/`) / master workbook.
 - **App code** — changes to the Shiny app (`src/app.py`), styling, or CI.
 
 ## Before you start
@@ -33,21 +33,25 @@ There are two kinds of contributions:
 
 ## Editing the catalogue data
 
-The catalogue lives in `Method_hub_WG2.xlsx`, which is tracked with
-[DVC](https://dvc.org/) — **not** committed directly to git.
+The catalogue is a set of **CSV files** in `src/data/` (`methods_bulk.csv`,
+`methods_single_cell.csv`, `methods_spatial.csv`, `benchmarking.csv`,
+`evaluation_metrics.csv`), committed to git so edits show up as readable diffs.
+They are generated from the master workbook `Method_hub_WG2.xlsx` at the repo root.
 
-1. `dvc pull` to fetch the current spreadsheet.
-2. Edit the relevant sheet (`Bulk methods`, `Single-cell methods`,
-   `Spatial methods`, `Benchmarking`, or `Evaluation metrics`).
-   - **Don't change the column order or header rows** — `app.py` reads method
-     columns by position (see `METHOD_COLS` and the `skiprows=` offsets in
-     `src/app.py`).
+1. Edit the master workbook `Method_hub_WG2.xlsx` (the relevant sheet:
+   `Bulk methods`, `Single-cell methods`, `Spatial methods`, `Benchmarking`, or
+   `Evaluation metrics`).
+   - **Keep the header row intact** — `app.py` reads the method columns by name
+     (see `METHOD_COLS`, kept in sync with `build_csvs.py`).
    - Use `Y` / `N` for the inclusion-criteria columns (actively maintained,
      published, code available, parameters documented). Inclusion status is
      **recomputed** from these in the app, so you don't need to fill it in.
    - Leave unknown cells blank rather than inventing values.
-3. `dvc add data/Method_hub_WG2.xlsx` and commit the updated `.dvc` pointer file.
-4. `dvc push` so others (and CI) can fetch your data.
+2. Regenerate the CSVs: `python build_csvs.py` (needs `pandas` + `openpyxl`).
+3. Commit the changed `src/data/*.csv` files **and** the workbook.
+
+(You can also edit the CSVs directly instead of the workbook — just keep their
+headers unchanged.)
 
 ## Changing the app
 
